@@ -10,3 +10,8 @@ original paper : [Learning deep representations by mutual information estimation
 
 2. [rcalland/deep-INFOMAX](https://github.com/rcalland/deep-INFOMAX)
 > chainer. model definition and traning script with (knn?) clustering example on CIFAR10. Better documentation.
+
+## other blogs and articles
+
+1. [深度学习中的互信息：无监督提取特征](https://www.jiqizhixin.com/articles/2018-10-12-11)
+> instead Adversarial training, this blog implements gaussian distribution as prior (similar to VAE). worth a try.
