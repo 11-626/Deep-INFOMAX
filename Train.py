@@ -12,11 +12,11 @@ from Model import DeepInfoMaxLoss
 if __name__ == "__main__":
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    batch_size = 128
-    num_epochs = 100
+    batch_size = 256
+    num_epochs = 1000
     num_workers = 4
-    save_interval = 50
-    version = "cifar10"
+    save_interval = 100
+    version = "cifar10_v2"
     lr = 1e-4
 
     # image size (3,32,32)
@@ -29,6 +29,7 @@ if __name__ == "__main__":
     dim = DeepInfoMaxLoss(alpha=0.5, beta=1.0, gamma=0.1).to(device)
     optimizer = torch.optim.Adam(dim.parameters(), lr=lr)
 
+    dim.train()
     for epoch in range(1, num_epochs+1):
         Batch = tqdm(train_loader, total=len(train_dataset) // batch_size)
         for i, (data, target) in enumerate(Batch, 1):
@@ -44,7 +45,7 @@ if __name__ == "__main__":
             optimizer.step()
 
         # checkpoint and save models
-        if epoch == 1 or epoch % save_interval == 0:
+        if epoch % save_interval == 0:
             file = Path(f"./Models/{version}/checkpoint_epoch_{epoch}.pkl")
             file.parent.mkdir(parents=True, exist_ok=True)
             torch.save(dim.state_dict(), str(file))
