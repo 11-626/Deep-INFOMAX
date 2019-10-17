@@ -14,10 +14,11 @@ if __name__ == "__main__":
     batch_size = 1
     num_workers = 1
     label = 5
-    model_path = "./Models/cifar10/checkpoint_epoch_100.pkl"
+    model_path = "./Models/cifar10_v3/dim_epoch_0100.pt"
 
     #-- dataset and DataLoader
-    transform = torchvision.transforms.Compose([torchvision.transforms.ToTensor(),])
+    transform = torchvision.transforms.Compose([
+        torchvision.transforms.ToTensor(), torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
     train_dataset = torchvision.datasets.cifar.CIFAR10("~/.torch/", download=True, transform=transform)
     train_loader  = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True, num_workers=num_workers)
 
