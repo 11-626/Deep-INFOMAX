@@ -120,9 +120,28 @@ class PriorDiscriminator(torch.nn.Module):
 
         score = F.relu(self.l0(x))
         score = F.relu(self.l1(score))
-        score = torch.sigmoid(self.l2(score))
+        score = self.l2(score)
 
         return score
+
+class PriorDiscriminatorLoss(torch.nn.Module):
+
+    def __init__(self, out_size=64, interm_size_P=(1000,200)):
+        super().__init__()
+        self.prior_D = PriorDiscriminator(E_size=out_size, interm_size=interm_size_P)
+        self.criterion = torch.nn.BCEWithLogitsLoss()
+    
+    def forward(self, Y, prior, device):
+        return self.compute_loss(Y, 0, device) + self.compute_loss(prior, 1, device)
+    
+    def encoder_loss(self, Y, device):
+        return self.compute_loss(Y, 1, device)
+    
+    def compute_loss(self, data, label, device):
+        logits = self.prior_D(data)
+        target = torch.full(logits.size(), label, device=device)
+        return self.criterion(logits, target)
+
 
 class DeepInfoMaxLoss(torch.nn.Module):
 
@@ -135,14 +154,13 @@ class DeepInfoMaxLoss(torch.nn.Module):
 
         self.get_models()
 
-    def get_models(self, input_shape=(32,32), num_feature=64, out_size=64, interm_size_G=512, interm_channels_L=512, interm_size_P=(1000,200) ):
+    def get_models(self, input_shape=(32,32), num_feature=64, out_size=64, interm_size_G=512, interm_channels_L=512):
 
         self.encoder = Encoder(input_shape=input_shape, num_feature=num_feature, out_size=out_size)
         self.global_D = GlobalDiscriminator(M_channels=self.encoder.M_channels, M_shape=self.encoder.M_shape, E_size=out_size, interm_size=interm_size_G)
         self.local_D = LocalDiscriminator(M_channels=self.encoder.M_channels, E_size=out_size, interm_channels=interm_channels_L)
-        self.prior_D = PriorDiscriminator(E_size=out_size, interm_size=interm_size_P)
 
-    def forward(self, Y, M, M_fake):
+    def forward(self, Y, M, M_fake, loss):
         # see appendix 1A of https://arxiv.org/pdf/1808.06670.pdf
 
         Y_replicated = Y.unsqueeze(-1).unsqueeze(-1)
@@ -154,22 +172,17 @@ class DeepInfoMaxLoss(torch.nn.Module):
         # local loss
         # 2nd term in equation (8) in https://arxiv.org/pdf/1808.06670.pdf
         Ej = -F.softplus(-self.local_D(Y_cat_M)).mean()
-        Em = -F.softplus(-self.local_D(Y_cat_M_fake)).mean()
+        Em = F.softplus(self.local_D(Y_cat_M_fake)).mean()
         local_loss = (Em - Ej) * self.beta
 
         # global loss
         # 1st term in equation (8) in https://arxiv.org/pdf/1808.06670.pdf
         Ej = -F.softplus(-self.global_D(Y, M)).mean()
-        Em = -F.softplus(-self.global_D(Y, M_fake)).mean()
+        Em = F.softplus(self.global_D(Y, M_fake)).mean()
         global_loss= (Em - Ej) * self.alpha
 
         # prior loss
         # 3rd term in equation (8) in https://arxiv.org/pdf/1808.06670.pdf
-        prior = torch.rand_like(Y)
-        # 1st term in equation (7) in https://arxiv.org/pdf/1808.06670.pdf
-        term_a = torch.log(self.prior_D(prior)).mean()
-        # 2nd term in equation (7) in https://arxiv.org/pdf/1808.06670.pdf
-        term_b = torch.log(1 - self.prior_D(Y)).mean()
-        prior_loss = - (term_a + term_b) * self.gamma
+        prior_loss = loss * self.gamma
 
         return local_loss + global_loss + prior_loss
